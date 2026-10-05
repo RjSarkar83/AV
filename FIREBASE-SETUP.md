@@ -23,12 +23,12 @@ Do not switch to public `.read: true` / `.write: true`. Firebase rules are enfor
 
 ## 3) Apply owner-only database rules
 
-1. In `database.rules.json`, replace every `YOUR_GOOGLE_EMAIL_HERE` with the Google account you will use to sign in. Use the same email spelling/case as the Google account.
+1. In `database.rules.json`, replace the two `YOUR_GOOGLE_EMAIL_HERE` values with the exact Google account email you will use to sign in. Use the same email spelling/case as the Google account.
 2. Open Firebase Console → **Realtime Database → Rules**.
 3. Paste the edited JSON and click **Publish**.
 4. Do **not** commit the edited file containing your personal email to a public GitHub repository. The ZIP includes only the placeholder template.
 
-These rules allow the owner account to read analytics and allow anonymous website tracker identities to write only records associated with their own Firebase Auth UID. Do not add an open `.read` or `.write` rule.
+These rules allow only the verified owner Google account to read/write the database. Anonymous website tracker identities can write session/visitor records only when their stored `authUid` matches their own Firebase Auth UID; they cannot read analytics. Do not add a public `.read: true` or `.write: true` rule.
 
 ## 4) Confirm the Web App config
 
