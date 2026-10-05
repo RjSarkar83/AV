@@ -287,16 +287,51 @@
   let writeBuffer = [];
   let flushTimer = null;
 
+  function setFlatUpdatePath(updates, path, value) {
+    // A queued later child update supersedes an earlier parent value. Conversely,
+    // a later parent value supersedes its earlier descendants. Keeping only the
+    // latest non-overlapping paths avoids RTDB's ancestor/descendant update error.
+    Object.keys(updates).forEach(existing => {
+      if (existing.startsWith(path + '/')) delete updates[existing];
+    });
+    const parts = path.split('/');
+    for (let i = 1; i < parts.length; i++) {
+      const ancestor = parts.slice(0, i).join('/');
+      if (Object.prototype.hasOwnProperty.call(updates, ancestor)) delete updates[ancestor];
+    }
+    updates[path] = value;
+  }
+
+  function flattenUpdateValue(updates, path, value) {
+    // Firebase RTDB update() accepts slash-separated leaf paths, but rejects an
+    // update object that includes both a parent path and any descendant path.
+    // Expand objects all the way to leaves so a session record and its queued
+    // events can safely be committed together without overlapping paths.
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      const entries = Object.entries(value);
+      if (!entries.length) {
+        setFlatUpdatePath(updates, path, null);
+        return;
+      }
+      entries.forEach(([key, childValue]) => {
+        flattenUpdateValue(updates, path ? path + '/' + key : key, childValue);
+      });
+      return;
+    }
+    if (path) setFlatUpdatePath(updates, path, value);
+  }
+
   function flushBuffer() {
     if (!firebaseReady || !dbRef || writeBuffer.length === 0) return;
+
+    const pending = writeBuffer;
+    writeBuffer = [];
     const updates = {};
-    writeBuffer.forEach(item => {
-      updates[item.path] = item.data;
-    });
+    pending.forEach(item => flattenUpdateValue(updates, item.path, item.data));
+
     dbRef.ref().update(updates).catch(err => {
       console.warn('[Audiences Analyze] Database write denied or unavailable:', err.code || err.message);
     });
-    writeBuffer = [];
   }
 
   function writeData(path, data) {
@@ -613,8 +648,12 @@
     const purposeSelect = document.querySelector('select, [placeholder*="Purpose"], [name*="purpose"], [id*="purpose"]');
     const nameInput = document.querySelector('input[placeholder*="name" i], input[name*="name" i], input[id*="name" i]');
     const phoneInput = document.querySelector('input[placeholder*="phone" i], input[placeholder*="mobile" i], input[placeholder*="number" i], input[name*="phone" i], input[type="tel"]');
-    const whatsappBtn = document.querySelector('a[href*="whatsapp"], a[href*="wa.me"], button:has(> *:contains("WhatsApp"))');
-    const sendBtn = document.querySelector('button:contains("Send"), button:contains("Submit"), button:contains("Book"), [class*="send"], [class*="submit"]');
+    const whatsappBtn = document.querySelector('a[href*="whatsapp"], a[href*="wa.me"]')
+      || Array.from(document.querySelectorAll('button, [role="button"]'))
+        .find(el => /whatsapp/i.test(el.textContent || ''));
+    const sendBtn = document.querySelector('[class*="send"], [class*="submit"]')
+      || Array.from(document.querySelectorAll('button, input[type="submit"]'))
+        .find(el => /\b(send|submit|book)\b/i.test(el.textContent || el.value || ''));
 
     const detected = {
       hasEnquiryForm: !!(nameInput || phoneInput || purposeSelect),
