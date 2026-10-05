@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audiences Analyze — Visitor Analytics Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+<div id="setup-screen" class="setup-screen">
+  <div class="setup-card">
+    <div class="setup-icon">👁️</div>
+    <h1>Audiences Analyze</h1>
+    <p class="setup-subtitle">One real-time dashboard for all your connected websites</p>
+    <div class="setup-steps">
+      <div class="setup-step">
+        <div class="step-num">1</div>
+        <div class="step-text">
+          <strong>Create a Firebase Project</strong>
+          <p>Go to <a href="https://console.firebase.google.com" target="_blank" rel="noopener">console.firebase.google.com</a> → Create project → Enable Realtime Database in locked mode; follow FIREBASE-SETUP.md for Auth and rules.</p>
+        </div>
+      </div>
+      <div class="setup-step">
+        <div class="step-num">2</div>
+        <div class="step-text">
+          <strong>Add a Web App</strong>
+          <p>Click the web icon (&lt;/&gt;) → Register app → Copy the config object</p>
+        </div>
+      </div>
+      <div class="setup-step">
+        <div class="step-num">3</div>
+        <div class="step-text">
+          <strong>Paste your Firebase config below:</strong>
+          <textarea id="firebase-config-input" placeholder="Paste your firebaseConfig object here...&#10;e.g. { apiKey: &quot;...&quot;, authDomain: &quot;...&quot;, databaseURL: &quot;...&quot;, projectId: &quot;...&quot;, ... }" spellcheck="false"></textarea>
+        </div>
+      </div>
+    </div>
+    <button id="save-config-btn" class="btn-primary">Connect Dashboard →</button>
+    <p class="setup-note">The packaged dashboard reads <code>firebase-config.js</code>. A Google sign-in and matching Realtime Database rules are required to view data.</p>
+  </div>
+</div>
+
+<div id="login-screen" class="setup-screen hidden">
+  <div class="setup-card">
+    <div class="setup-icon">🔐</div>
+    <h1>Audiences Analyze</h1>
+    <p class="setup-subtitle">Private dashboard — sign in with the Google account listed in database.rules.json</p>
+    <button id="google-login-btn" class="btn-primary">Continue with Google →</button>
+    <p id="login-error" class="setup-note" role="status"></p>
+    <p class="setup-note">Visitor tracking uses anonymous Firebase Authentication. Do not make the database public.</p>
+  </div>
+</div>
+
+<div id="dashboard" class="dashboard hidden">
+  <!-- Top Bar -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-icon">👁️</div>
+      <div class="brand-text">
+        <h1>Audiences <span class="accent">Analyze</span></h1>
+        <p class="brand-sub">Live visitor intelligence</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <div class="live-badge"><span class="pulse"></span>LIVE</div>
+      <span id="auth-user" class="auth-user"></span>
+      <button id="signout-btn" class="btn-ghost" title="Sign out of dashboard">⇥</button>
+      <div class="site-selector-wrapper">
+        <select id="site-filter" class="select-sm site-filter">
+          <option value="__all__">🌐 All Sites</option>
+        </select>
+      </div>
+      <select id="time-range" class="select-sm">
+        <option value="today">Today</option>
+        <option value="24h" selected>Last 24 hours</option>
+        <option value="7d">Last 7 days</option>
+        <option value="30d">Last 30 days</option>
+        <option value="all">All time</option>
+      </select>
+      <button id="refresh-btn" class="btn-ghost" title="Refresh">↻</button>
+      <button id="settings-btn" class="btn-ghost" title="Settings">⚙️</button>
+    </div>
+  </header>
+
+  <!-- Stats Row -->
+  <section class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Active Visitors</div>
+      <div class="stat-value" id="stat-active">0</div>
+      <div class="stat-trend up">● Live right now</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Sessions</div>
+      <div class="stat-value" id="stat-sessions">0</div>
+      <div class="stat-trend" id="stat-sessions-trend">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Unique Visitors</div>
+      <div class="stat-value" id="stat-visitors">0</div>
+      <div class="stat-trend" id="stat-visitors-trend">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg. Session Duration</div>
+      <div class="stat-value" id="stat-avg-duration">0s</div>
+      <div class="stat-trend" id="stat-duration-trend">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Page Views</div>
+      <div class="stat-value" id="stat-pageviews">0</div>
+      <div class="stat-trend" id="stat-pv-trend">—</div>
+    </div>
+    <div class="stat-card highlight">
+      <div class="stat-label">🔥 Digital Card Leads</div>
+      <div class="stat-value" id="stat-leads">0</div>
+      <div class="stat-trend" id="stat-leads-trend">Enquiries & WhatsApp clicks</div>
+    </div>
+  </section>
+
+  <!-- Main Grid -->
+  <section class="main-grid">
+    <!-- Active Visitors -->
+    <div class="panel span-8">
+      <div class="panel-header">
+        <h2>🟢 Active Visitors — Real Time</h2>
+        <span class="panel-count" id="active-count">0 online</span>
+      </div>
+      <div class="visitor-list" id="active-visitors">
+        <div class="empty-state">Waiting for visitors...</div>
+      </div>
+    </div>
+
+    <!-- Traffic Sources -->
+    <div class="panel span-4">
+      <div class="panel-header"><h2>🔗 Traffic Sources</h2></div>
+      <div class="source-list" id="source-list">
+        <div class="empty-state">No data yet</div>
+      </div>
+    </div>
+
+    <!-- Top Pages -->
+    <div class="panel span-4">
+      <div class="panel-header"><h2>📄 Top Pages</h2></div>
+      <div class="page-list" id="page-list">
+        <div class="empty-state">No data yet</div>
+      </div>
+    </div>
+
+    <!-- World Map / Countries -->
+    <div class="panel span-4">
+      <div class="panel-header"><h2>🌍 Visitor Locations</h2></div>
+      <div class="country-list" id="country-list">
+        <div class="empty-state">No data yet</div>
+      </div>
+    </div>
+
+    <!-- Devices -->
+    <div class="panel span-4">
+      <div class="panel-header"><h2>📱 iOS, Android & Devices</h2></div>
+      <div class="mobile-os-summary" id="mobile-os-summary"></div>
+      <div class="device-chart" id="device-chart">
+        <div class="empty-state">No data yet</div>
+      </div>
+    </div>
+
+    <!-- Digital Card / Leads -->
+    <div class="panel span-6">
+      <div class="panel-header lead-panel-header">
+        <h2>💼 Lead Contacts</h2>
+        <input id="lead-search" class="lead-search" type="search" placeholder="Search name, phone, email…" aria-label="Search leads">
+      </div>
+      <p class="lead-privacy-note">Only contact details visitors submit are shown here. WhatsApp clicks do not reveal the visitor’s phone or profile.</p>
+      <div class="leads-list" id="leads-list">
+        <div class="empty-state">No leads captured yet</div>
+      </div>
+    </div>
+
+    <!-- Recent Events Timeline -->
+    <div class="panel span-6">
+      <div class="panel-header"><h2>⚡ Live Event Stream</h2></div>
+      <div class="event-timeline" id="event-timeline">
+        <div class="empty-state">Waiting for events...</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Session Detail Modal -->
+  <div id="session-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <button class="modal-close" id="modal-close">×</button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>Audiences Analyze · All connected websites · Built for personal use · Powered by Firebase Realtime Database</p>
+  </footer>
+</div>
+
+<!-- Firebase client config, Authentication, and Realtime Database SDKs -->
+<script src="firebase-config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="dashboard.js"></script>
+</body>
+</html>

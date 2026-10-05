@@ -1,0 +1,24 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "sessions": {
+      ".read": "auth != null && auth.token.email_verified === true && auth.token.email === 'YOUR_GOOGLE_EMAIL_HERE'",
+      "$sessionId": {
+        ".write": "auth != null && ((auth.token.email_verified === true && auth.token.email === 'YOUR_GOOGLE_EMAIL_HERE') || (!data.exists() && newData.child('authUid').val() === auth.uid) || data.child('authUid').val() === auth.uid)"
+      }
+    },
+    "visitors": {
+      ".read": "auth != null && auth.token.email_verified === true && auth.token.email === 'YOUR_GOOGLE_EMAIL_HERE'",
+      "$visitorId": {
+        ".write": "auth != null && ((auth.token.email_verified === true && auth.token.email === 'YOUR_GOOGLE_EMAIL_HERE') || (!data.exists() && newData.child('authUid').val() === auth.uid) || data.child('authUid').val() === auth.uid)"
+      }
+    },
+    "sites": {
+      ".read": "auth != null && auth.token.email_verified === true && auth.token.email === 'YOUR_GOOGLE_EMAIL_HERE'",
+      "$siteId": {
+        ".write": "auth != null && ((auth.token.email_verified === true && auth.token.email === 'YOUR_GOOGLE_EMAIL_HERE') || auth.token.firebase.sign_in_provider === 'anonymous')"
+      }
+    }
+  }
+}
